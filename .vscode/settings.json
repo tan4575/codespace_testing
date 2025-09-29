@@ -1,0 +1,4 @@
+{
+    "cmake.configureSettings": {"CMAKE_PREFIX_PATH" : "/usr/bin/cmake"},
+    "cmake.buildDirectory": "${workspaceFolder}/build/vscode"
+}
