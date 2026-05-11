@@ -116,6 +116,7 @@ class LabColorDetector:
         Returns:
             (result_dict, annotated_bgr_image)
         """
+        # bgr_image = cv2.cvtColor(bgr_image, cv2.COLOR_RGB2BGR)
         result = self.detect(bgr_image, roi)
         vis = self._draw_overlay(bgr_image.copy(), result, roi)
         return result, vis
@@ -154,6 +155,35 @@ class LabColorDetector:
         """
         pixels = lab_img.reshape(-1, 3).astype(np.float32)
 
+        # Prefer chromatic pixels over neutral ones so that white/black backgrounds
+        # and achromatic car parts (roof, tires, trim) don't swamp the vote.
+        # OpenCV LAB: L in [0,255], a/b shifted by 128.
+        l = pixels[:, 0]
+        a_px = pixels[:, 1] - 128.0
+        b_px = pixels[:, 2] - 128.0
+        h, w, c = lab_img.shape
+        for b in b_px:
+            if b > 50:
+                print(b)
+        restored = b_px.reshape(h,w)
+        cv2.imshow("Result", restored)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
+        chroma_px = np.sqrt(a_px ** 2 + b_px ** 2)
+
+        # Primary: non-background AND chromatic (chroma* > 15 ≈ saturated hue)
+        mask = (l > 25) & (l < 230) & (chroma_px > 15)
+        filtered = pixels[mask]
+        if len(filtered) >= 100:
+            pixels = filtered
+        else:
+            # Fallback for neutral-coloured objects (black/white/gray): just
+            # exclude background extremes and let K-Means sort it out.
+            mask2 = (l > 25) & (l < 230)
+            filtered2 = pixels[mask2]
+            if len(filtered2) >= 100:
+                pixels = filtered2
+
         # Subsample for speed on large images (max 8 000 pixels)
         if len(pixels) > 8_000:
             idx = np.random.choice(len(pixels), 8_000, replace=False)
@@ -166,10 +196,11 @@ class LabColorDetector:
         )
         _, labels, centers = cv2.kmeans(
             pixels, self.k, None, criteria,
-            attempts=3, flags=cv2.KMEANS_PP_CENTERS
+            attempts=5, flags=cv2.KMEANS_PP_CENTERS
         )
 
-        # Find the cluster with the most pixels
+        # Largest cluster wins; pixels are already pre-filtered to be chromatic
+        # so a plain count is a reliable proxy for the dominant hue.
         counts = np.bincount(labels.flatten())
         dominant_center = centers[np.argmax(counts)]
 
