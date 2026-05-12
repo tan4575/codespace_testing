@@ -158,31 +158,6 @@ class LabColorDetector:
         # Prefer chromatic pixels over neutral ones so that white/black backgrounds
         # and achromatic car parts (roof, tires, trim) don't swamp the vote.
         # OpenCV LAB: L in [0,255], a/b shifted by 128.
-        l = pixels[:, 0]
-        a_px = pixels[:, 1] - 128.0
-        b_px = pixels[:, 2] - 128.0
-        h, w, c = lab_img.shape
-        for b in b_px:
-            if b > 50:
-                print(b)
-        restored = b_px.reshape(h,w)
-        cv2.imshow("Result", restored)
-        cv2.waitKey(0)
-        cv2.destroyAllWindows()
-        chroma_px = np.sqrt(a_px ** 2 + b_px ** 2)
-
-        # Primary: non-background AND chromatic (chroma* > 15 ≈ saturated hue)
-        mask = (l > 25) & (l < 230) & (chroma_px > 15)
-        filtered = pixels[mask]
-        if len(filtered) >= 100:
-            pixels = filtered
-        else:
-            # Fallback for neutral-coloured objects (black/white/gray): just
-            # exclude background extremes and let K-Means sort it out.
-            mask2 = (l > 25) & (l < 230)
-            filtered2 = pixels[mask2]
-            if len(filtered2) >= 100:
-                pixels = filtered2
 
         # Subsample for speed on large images (max 8 000 pixels)
         if len(pixels) > 8_000:
@@ -214,6 +189,13 @@ class LabColorDetector:
     # ------------------------------------------------------------------
     # Color matching
     # ------------------------------------------------------------------
+    def _calculate_delta_e_cie76(self, lab1, lab2):
+        """
+        Calculates Delta E (CIE76) as the Euclidean distance between 
+        two points in the 3D Lab space.
+        """
+        # Formula: sqrt((L2-L1)^2 + (a2-a1)^2 + (b2-b1)^2)
+        return np.sqrt(np.sum((lab1 - lab2)**2))
 
     def _match_color(self, lab: np.ndarray) -> dict:
         """
@@ -222,8 +204,9 @@ class LabColorDetector:
         """
         # Normalised per-channel distance: (obs - center) / tolerance
         delta = (lab - self._centers) / (self._tolerances + 1e-6)
+        for i in range(len(self._centers)):
+            print(self._calculate_delta_e_cie76(lab , self._centers[i]))
         distances = np.linalg.norm(delta, axis=1)  # shape (N,)
-
         sorted_idx = np.argsort(distances)
         best_idx = sorted_idx[0]
         best_dist = distances[best_idx]
