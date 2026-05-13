@@ -33,18 +33,18 @@ class ColorProfile:
 
 # Empirically tuned LAB ranges for common object colors
 COLOR_PROFILES: list[ColorProfile] = [
-    ColorProfile("Red",      (45, 55,  38),  (25, 30, 30), "#E53935"),
-    ColorProfile("Orange",   (60, 30,  50),  (20, 25, 30), "#FB8C00"),
-    ColorProfile("Yellow",   (85,  0,  75),  (20, 20, 35), "#FDD835"),
-    ColorProfile("Green",    (45, -40, 25),  (25, 30, 30), "#43A047"),
-    ColorProfile("Cyan",     (70, -25,-20),  (20, 25, 25), "#00ACC1"),
-    ColorProfile("Blue",     (35,  10,-50),  (25, 20, 35), "#1E88E5"),
-    ColorProfile("Purple",   (35,  30,-30),  (20, 25, 25), "#8E24AA"),
-    ColorProfile("Pink",     (70,  35,  5),  (20, 25, 20), "#E91E63"),
-    ColorProfile("White",    (95,   0,  0),  (10, 10, 10), "#FAFAFA"),
-    ColorProfile("Black",    (10,   0,  0),  (12, 10, 10), "#212121"),
-    ColorProfile("Gray",     (55,   0,  0),  (20, 10, 10), "#757575"),
-    ColorProfile("Brown",    (35,  15, 20),  (20, 20, 20), "#6D4C41"),
+    ColorProfile("Red",      (50, 100, 100),  (25, 200, 200), "#E53935"),
+    ColorProfile("Orange",   (60,  30,  50),  (20, 50, 50),   "#FB8C00"),
+    ColorProfile("Yellow",   (90,   0,  75),  (20, 20, 35),   "#FDD835"),
+    ColorProfile("Green",    (90, -100, 80),  (150, 150, 150),   "#43A047"),
+    ColorProfile("Cyan",     (90, -75, -75),  (150, 100, 100),   "#00ACC1"),
+    ColorProfile("Blue",     (30,   0, -80),  (50, 150, 150),   "#1E88E5"),
+    ColorProfile("Purple",   (50, 100, -70),  (50, 150, 150),   "#8E24AA"),
+    ColorProfile("Pink",     (80, 110, -50),  (20, 20, 20),   "#E91E63"),
+    ColorProfile("White",    (100,  0,   0),  (10, 10, 10),   "#FAFAFA"),
+    ColorProfile("Black",    (0,    0,   0),  (40, 10, 10),   "#212121"),
+    ColorProfile("Gray",     (50,   0,   0),  (20, 10, 10),   "#757575"),
+    ColorProfile("Brown",    (30,   10,  80),  (50, 150, 150),   "#6D4C41"),
 ]
 
 
@@ -167,7 +167,7 @@ class LabColorDetector:
         criteria = (
             cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER,
             20,     # max iterations
-            1.0,    # epsilon
+            0.3,    # epsilon
         )
         _, labels, centers = cv2.kmeans(
             pixels, self.k, None, criteria,
@@ -204,8 +204,8 @@ class LabColorDetector:
         """
         # Normalised per-channel distance: (obs - center) / tolerance
         delta = (lab - self._centers) / (self._tolerances + 1e-6)
-        for i in range(len(self._centers)):
-            print(self._calculate_delta_e_cie76(lab , self._centers[i]))
+        # for i in range(len(self._centers)):
+        #     print(self._calculate_delta_e_cie76(lab , self._centers[i]))
         distances = np.linalg.norm(delta, axis=1)  # shape (N,)
         sorted_idx = np.argsort(distances)
         best_idx = sorted_idx[0]
