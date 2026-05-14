@@ -31,23 +31,110 @@ class ColorProfile:
     hex_display: str  # representative hex for UI
 
 
-KL = 1.0  # Lightness
-KC = 1.0  # Chroma
-KH = 1.0  # Hue
-# Empirically tuned LAB ranges for common object colors
+KL = 1.0  # Lightness weighting
+KC = 1.0  # Chroma (a*) weighting
+KH = 1.0  # Hue    (b*) weighting
+
+# Full-spectrum LAB color database.
+# Centers: real sRGB→LAB conversions (D65 illuminant, rounded to nearest int).
+# Tolerances are per-channel LAB units; scaled by KL/KC/KH for tuning.
 COLOR_PROFILES: list[ColorProfile] = [
-    ColorProfile("Red", (50, 100, 100), (25 * KL, 200 * KC, 200 * KH), "#E53935"),
-    ColorProfile("Orange", (60, 30, 50), (20 * KL, 50 * KC, 50 * KH), "#FB8C00"),
-    ColorProfile("Yellow", (90, 0, 75), (20 * KL, 20 * KC, 35 * KH), "#FDD835"),
-    ColorProfile("Green", (90, -100, 80), (150 * KL, 150 * KC, 150 * KH), "#43A047"),
-    ColorProfile("Cyan", (90, -75, -75), (150 * KL, 100 * KC, 100 * KH), "#00ACC1"),
-    ColorProfile("Blue", (30, 0, -80), (50 * KL, 150 * KC, 150 * KH), "#1E88E5"),
-    ColorProfile("Purple", (50, 100, -70), (50 * KL, 150 * KC, 150 * KH), "#8E24AA"),
-    ColorProfile("Pink", (80, 110, -50), (20 * KL, 20 * KC, 20 * KH), "#E91E63"),
-    ColorProfile("White", (100, 0, 0), (10 * KL, 10 * KC, 10 * KH), "#FAFAFA"),
-    ColorProfile("Black", (0, 0, 0), (40 * KL, 10 * KC, 10 * KH), "#212121"),
-    ColorProfile("Gray", (50, 0, 0), (20 * KL, 10 * KC, 10 * KH), "#757575"),
-    ColorProfile("Brown", (30, 10, 80), (50 * KL, 150 * KC, 150 * KH), "#6D4C41"),
+
+    # ── Reds ───────────────────────────────────────────────────────────────
+    ColorProfile("Red",           ( 53,  80,  67), (18*KL, 22*KC, 22*KH), "#FF0000"),
+    ColorProfile("Crimson",       ( 41,  64,  28), (15*KL, 20*KC, 20*KH), "#DC143C"),
+    ColorProfile("Scarlet",       ( 51,  74,  63), (15*KL, 20*KC, 22*KH), "#FF2400"),
+    ColorProfile("Dark Red",      ( 23,  40,  22), (13*KL, 18*KC, 18*KH), "#8B0000"),
+    ColorProfile("Maroon",        ( 23,  39,  21), (13*KL, 18*KC, 18*KH), "#800000"),
+    ColorProfile("Coral",         ( 61,  43,  37), (16*KL, 22*KC, 22*KH), "#FF6347"),
+    ColorProfile("Salmon",        ( 64,  37,  24), (16*KL, 22*KC, 20*KH), "#FA8072"),
+    ColorProfile("Tomato",        ( 57,  60,  52), (15*KL, 20*KC, 22*KH), "#FF4500"),
+    ColorProfile("Rose",          ( 52,  80, -10), (16*KL, 22*KC, 20*KH), "#FF007F"),
+
+    # ── Oranges ────────────────────────────────────────────────────────────
+    ColorProfile("Orange",        ( 72,  24,  69), (18*KL, 22*KC, 22*KH), "#FFA500"),
+    ColorProfile("Dark Orange",   ( 66,  36,  73), (16*KL, 20*KC, 22*KH), "#FF8C00"),
+    ColorProfile("Amber",         ( 81,  11,  75), (16*KL, 20*KC, 22*KH), "#FFBF00"),
+    ColorProfile("Peach",         ( 78,  22,  28), (16*KL, 20*KC, 20*KH), "#FFCBA4"),
+
+    # ── Yellows ────────────────────────────────────────────────────────────
+    ColorProfile("Yellow",        ( 97, -22,  95), (12*KL, 18*KC, 18*KH), "#FFFF00"),
+    ColorProfile("Lemon",         ( 96, -18,  88), (12*KL, 18*KC, 18*KH), "#FFF44F"),
+    ColorProfile("Gold",          ( 84,   3,  79), (16*KL, 18*KC, 20*KH), "#FFD700"),
+    ColorProfile("Khaki",         ( 90,  -6,  38), (16*KL, 16*KC, 20*KH), "#F0E68C"),
+
+    # ── Yellow-Greens ──────────────────────────────────────────────────────
+    ColorProfile("Chartreuse",    ( 90, -50,  77), (16*KL, 22*KC, 22*KH), "#7FFF00"),
+    ColorProfile("Yellow Green",  ( 78, -30,  60), (16*KL, 22*KC, 22*KH), "#9ACD32"),
+    ColorProfile("Lime",          ( 88, -86,  83), (14*KL, 20*KC, 20*KH), "#00FF00"),
+
+    # ── Greens ─────────────────────────────────────────────────────────────
+    ColorProfile("Green",         ( 46, -48,  48), (18*KL, 22*KC, 22*KH), "#008000"),
+    ColorProfile("Forest Green",  ( 43, -42,  37), (16*KL, 20*KC, 20*KH), "#228B22"),
+    ColorProfile("Dark Green",    ( 32, -33,  28), (14*KL, 18*KC, 18*KH), "#006400"),
+    ColorProfile("Emerald",       ( 72, -48,  30), (16*KL, 22*KC, 20*KH), "#50C878"),
+    ColorProfile("Olive",         ( 52, -13,  47), (18*KL, 18*KC, 22*KH), "#808000"),
+    ColorProfile("Mint",          ( 96, -30,  17), (12*KL, 18*KC, 18*KH), "#98FF98"),
+    ColorProfile("Sage",          ( 68, -18,  18), (16*KL, 18*KC, 18*KH), "#B2AC88"),
+
+    # ── Teals ──────────────────────────────────────────────────────────────
+    ColorProfile("Teal",          ( 48, -29,  -8), (18*KL, 20*KC, 20*KH), "#008080"),
+    ColorProfile("Dark Teal",     ( 33, -22,  -8), (14*KL, 18*KC, 18*KH), "#005F5F"),
+    ColorProfile("Turquoise",     ( 83, -27,  -8), (16*KL, 20*KC, 20*KH), "#40E0D0"),
+    ColorProfile("Aquamarine",    ( 91, -36,   3), (14*KL, 18*KC, 18*KH), "#7FFFD4"),
+
+    # ── Cyans ──────────────────────────────────────────────────────────────
+    ColorProfile("Cyan",          ( 91, -48, -14), (14*KL, 20*KC, 20*KH), "#00FFFF"),
+    ColorProfile("Sky Blue",      ( 78,  -7, -25), (18*KL, 18*KC, 22*KH), "#87CEEB"),
+
+    # ── Blues ──────────────────────────────────────────────────────────────
+    ColorProfile("Cornflower",    ( 60,   9, -53), (16*KL, 20*KC, 22*KH), "#6495ED"),
+    ColorProfile("Steel Blue",    ( 48,   2, -40), (16*KL, 18*KC, 22*KH), "#4682B4"),
+    ColorProfile("Blue",          ( 32,  79,-108), (18*KL, 24*KC, 24*KH), "#0000FF"),
+    ColorProfile("Royal Blue",    ( 40,  24, -69), (16*KL, 20*KC, 24*KH), "#4169E1"),
+    ColorProfile("Cobalt",        ( 32,  22, -72), (14*KL, 18*KC, 22*KH), "#0047AB"),
+    ColorProfile("Navy",          ( 13,  47, -64), (13*KL, 18*KC, 20*KH), "#000080"),
+    ColorProfile("Midnight Blue", ( 16,  24, -49), (13*KL, 18*KC, 20*KH), "#191970"),
+
+    # ── Violets / Purples ──────────────────────────────────────────────────
+    ColorProfile("Indigo",        ( 15,  37, -63), (13*KL, 20*KC, 22*KH), "#4B0082"),
+    ColorProfile("Violet",        ( 40,  55, -65), (16*KL, 22*KC, 24*KH), "#7F00FF"),
+    ColorProfile("Purple",        ( 30,  50, -38), (16*KL, 22*KC, 22*KH), "#800080"),
+    ColorProfile("Dark Purple",   ( 22,  36, -28), (13*KL, 18*KC, 18*KH), "#4B0050"),
+    ColorProfile("Orchid",        ( 60,  44, -25), (16*KL, 20*KC, 20*KH), "#DA70D6"),
+    ColorProfile("Lavender",      ( 91,   5, -13), (14*KL, 14*KC, 16*KH), "#E6E6FA"),
+    ColorProfile("Lilac",         ( 72,  20, -18), (16*KL, 18*KC, 18*KH), "#C8A2C8"),
+    ColorProfile("Plum",          ( 41,  37, -22), (14*KL, 18*KC, 18*KH), "#8B4789"),
+
+    # ── Pinks / Magentas ───────────────────────────────────────────────────
+    ColorProfile("Magenta",       ( 60,  98, -61), (16*KL, 22*KC, 22*KH), "#FF00FF"),
+    ColorProfile("Fuchsia",       ( 55,  85, -45), (15*KL, 20*KC, 20*KH), "#FF1493"),
+    ColorProfile("Hot Pink",      ( 64,  64, -17), (16*KL, 20*KC, 18*KH), "#FF69B4"),
+    ColorProfile("Pink",          ( 81,  24,   4), (16*KL, 20*KC, 16*KH), "#FFC0CB"),
+    ColorProfile("Light Pink",    ( 80,  22,   3), (14*KL, 18*KC, 14*KH), "#FFB6C1"),
+
+    # ── Neutrals ───────────────────────────────────────────────────────────
+    ColorProfile("White",         (100,   0,   0), ( 6*KL,  8*KC,  8*KH), "#FFFFFF"),
+    ColorProfile("Ivory",         ( 99,  -2,   8), ( 6*KL,  8*KC, 10*KH), "#FFFFF0"),
+    ColorProfile("Cream",         ( 96,  -3,  10), ( 8*KL,  8*KC, 10*KH), "#FFFDD0"),
+    ColorProfile("Light Gray",    ( 83,   0,   0), (10*KL,  8*KC,  8*KH), "#D3D3D3"),
+    ColorProfile("Silver",        ( 77,   0,   0), (10*KL,  8*KC,  8*KH), "#C0C0C0"),
+    ColorProfile("Gray",          ( 53,   0,   0), (12*KL,  8*KC,  8*KH), "#808080"),
+    ColorProfile("Dark Gray",     ( 28,   0,   0), (10*KL,  8*KC,  8*KH), "#404040"),
+    ColorProfile("Charcoal",      ( 22,  -2,  -3), (10*KL,  8*KC,  8*KH), "#36454F"),
+    ColorProfile("Black",         (  0,   0,   0), ( 8*KL,  8*KC,  8*KH), "#000000"),
+
+    # ── Earth Tones ────────────────────────────────────────────────────────
+    ColorProfile("Brown",         ( 36,  22,  29), (16*KL, 20*KC, 22*KH), "#8B4513"),
+    ColorProfile("Dark Brown",    ( 27,  16,  22), (13*KL, 16*KC, 18*KH), "#5C3317"),
+    ColorProfile("Chocolate",     ( 50,  26,  39), (16*KL, 20*KC, 22*KH), "#D2691E"),
+    ColorProfile("Sienna",        ( 44,  26,  35), (16*KL, 20*KC, 22*KH), "#A0522D"),
+    ColorProfile("Tan",           ( 73,   9,  23), (16*KL, 16*KC, 18*KH), "#D2B48C"),
+    ColorProfile("Sandy Brown",   ( 70,  14,  36), (16*KL, 18*KC, 20*KH), "#F4A460"),
+    ColorProfile("Beige",         ( 96,  -2,  11), (10*KL, 10*KC, 12*KH), "#F5F5DC"),
+    ColorProfile("Rust",          ( 42,  37,  40), (16*KL, 20*KC, 20*KH), "#B7410E"),
+    ColorProfile("Terracotta",    ( 57,  36,  30), (16*KL, 20*KC, 20*KH), "#E2725B"),
+    ColorProfile("Ochre",         ( 63,  12,  52), (16*KL, 18*KC, 22*KH), "#CC7722"),
 ]
 
 
