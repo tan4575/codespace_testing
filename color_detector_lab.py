@@ -209,40 +209,89 @@ class LabColorDetector:
         tolerance-weighted Euclidean distance (perceptual ΔE approximation).
         """
         # Normalised per-channel distance: (obs - center) / tolerance
-        c1 = np.hypot(lab[1], lab[2])
-        c2 = np.hypot(self._centers[:, 1], self._centers[:, 2])  # (N,) — sample chroma
-        kl, kc, kh = 1.0, 1.0, 1.0
-        sl = 1.0
-        sc = 1.0 + 0.045 * c1
-        sh = 1.0 + 0.015 * c1
+        RAD = np.float32(np.pi / 180)
+        L1 = lab[0]
+        a1 = lab[1]
+        b1 = lab[2]
+        L2 = self._centers[:, 0]
+        a2 = self._centers[:, 1]
+        b2 = self._centers[:, 2]
+        c1 = np.hypot(a1, b1)
+        c2 = np.hypot(a2, b2)  # (N,) — sample chroma
+        Cavg = (c1 + c2) * np.float32(0.5)
+        Cavg7 = Cavg**7
+        G = np.float32(0.5) * (1 - np.sqrt(Cavg7 / (Cavg7 + np.float32(25**7))))
 
-        dL = lab[0] - self._centers[:, 0]
-        dC = c1 - c2
-        dH2 = np.maximum(
-            (lab[1] - self._centers[:, 1]) ** 2
-            + (lab[2] - self._centers[:, 2]) ** 2
-            - dC**2,
+        a1p = a1 * (1 + G)
+        a2p = a2 * (1 + G)
+        C1p = np.hypot(a1p, b1)
+        C2p = np.hypot(a2p, b2)
+
+        def hue_prime(ap, b):
+            ang = np.degrees(np.arctan2(b, ap))  # (N,)
+            return np.where(ang < 0, ang + 360, ang)  # wrap negatives
+
+        h1p = np.where((a1p == 0) & (b1 == 0), np.float32(0), hue_prime(a1p, b1))
+        h2p = np.where((a2p == 0) & (b2 == 0), np.float32(0), hue_prime(a2p, b2))
+
+        dLp = L2 - L1
+        dCp = C2p - C1p
+
+        achromatic = (C1p * C2p) == 0
+        diff = h2p - h1p
+        dhp = np.where(
+            achromatic,
             np.float32(0),
+            np.where(
+                np.abs(diff) <= 180, diff, np.where(diff > 180, diff - 360, diff + 360)
+            ),
         )
-        dH = np.sqrt(dH2)
 
-        # delta = np.transpose((
-        #     delta[:, 0] / (kl * sl) / 100,
-        #     delta[:, 1] / (kc * sc) / 100,
-        #     delta[:, 2] / (kh * sh) / 100,
-        # ))
-        # print(lab - self._centers)
-        # print(delta)
-        # print(c2)
-        # print(self._centers)
-        Lterm = dL / (kl * sl) / 100
-        Cterm = dC / (kc * sc) / 100
-        Hterm = dH / (kh * sh) / 100
-        # delta = (lab - self._centers) / (self._tolerances + 1e-6)
-        distances = np.sqrt(Lterm**2 + Cterm**2 + Hterm**2)
+        dHp = 2 * np.sqrt(C1p * C2p) * np.sin(dhp * np.float32(0.5) * RAD)
+        Lbp = (L1 + L2) * np.float32(0.5)
+        Cbp = (C1p + C2p) * np.float32(0.5)
 
-        # distances = np.linalg.norm(delta, axis=1)  # shape (N,)
-        # sorted_idx = np.argsort(distances)
+        # Branchless mean hue (replaces 4-way if/elif)
+        hsum = h1p + h2p
+        hbp = np.where(
+            achromatic,
+            hsum,
+            np.where(
+                np.abs(h1p - h2p) <= 180,
+                hsum * np.float32(0.5),
+                np.where(
+                    hsum < 360,
+                    (hsum + 360) * np.float32(0.5),
+                    (hsum - 360) * np.float32(0.5),
+                ),
+            ),
+        )
+        hbp_r = hbp * RAD  # degrees → radians (reused 4×)
+        T = (
+            np.float32(1)
+            - np.float32(0.17) * np.cos(hbp_r - np.float32(30 * np.pi / 180))
+            + np.float32(0.24) * np.cos(2 * hbp_r)
+            + np.float32(0.32) * np.cos(3 * hbp_r + np.float32(6 * np.pi / 180))
+            - np.float32(0.20) * np.cos(4 * hbp_r - np.float32(63 * np.pi / 180))
+        )
+
+        Lbp50 = Lbp - np.float32(50)
+        SL = np.float32(1) + np.float32(0.015) * Lbp50**2 / np.sqrt(
+            np.float32(20) + Lbp50**2
+        )
+        SC = np.float32(1) + np.float32(0.045) * Cbp
+        SH = np.float32(1) + np.float32(0.015) * Cbp * T
+
+        Cbp7 = Cbp**7
+        RC = np.float32(2) * np.sqrt(Cbp7 / (Cbp7 + np.float32(25**7)))
+        dtheta = np.float32(30) * np.exp(-(((hbp - np.float32(275)) / np.float32(25)) ** 2))
+        RT = -np.sin(np.float32(2) * dtheta * RAD) * RC
+
+        kl, kc, kh = 1.0, 1.0, 1.0
+        Lterm = dLp / (kl * SL) / 100
+        Cterm = dCp / (kc * SC) / 100
+        Hterm = dHp / (kh * SH) / 100
+        distances = np.sqrt(Lterm**2 + Cterm**2 + Hterm**2 + RT * Cterm * Hterm)
         sorted_idx = np.argsort(distances)
         best_idx = sorted_idx[0]
         best_dist = distances[best_idx]
