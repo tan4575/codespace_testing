@@ -31,20 +31,23 @@ class ColorProfile:
     hex_display: str  # representative hex for UI
 
 
+KL = 1.0  # Lightness
+KC = 1.0  # Chroma
+KH = 1.0  # Hue
 # Empirically tuned LAB ranges for common object colors
 COLOR_PROFILES: list[ColorProfile] = [
-    ColorProfile("Red", (50, 100, 100), (25, 200, 200), "#E53935"),
-    ColorProfile("Orange", (60, 30, 50), (20, 50, 50), "#FB8C00"),
-    ColorProfile("Yellow", (90, 0, 75), (20, 20, 35), "#FDD835"),
-    ColorProfile("Green", (90, -100, 80), (150, 150, 150), "#43A047"),
-    ColorProfile("Cyan", (90, -75, -75), (150, 100, 100), "#00ACC1"),
-    ColorProfile("Blue", (30, 0, -80), (50, 150, 150), "#1E88E5"),
-    ColorProfile("Purple", (50, 100, -70), (50, 150, 150), "#8E24AA"),
-    ColorProfile("Pink", (80, 110, -50), (20, 20, 20), "#E91E63"),
-    ColorProfile("White", (100, 0, 0), (10, 10, 10), "#FAFAFA"),
-    ColorProfile("Black", (0, 0, 0), (40, 10, 10), "#212121"),
-    ColorProfile("Gray", (50, 0, 0), (20, 10, 10), "#757575"),
-    ColorProfile("Brown", (30, 10, 80), (50, 150, 150), "#6D4C41"),
+    ColorProfile("Red", (50, 100, 100), (25 * KL, 200 * KC, 200 * KH), "#E53935"),
+    ColorProfile("Orange", (60, 30, 50), (20 * KL, 50 * KC, 50 * KH), "#FB8C00"),
+    ColorProfile("Yellow", (90, 0, 75), (20 * KL, 20 * KC, 35 * KH), "#FDD835"),
+    ColorProfile("Green", (90, -100, 80), (150 * KL, 150 * KC, 150 * KH), "#43A047"),
+    ColorProfile("Cyan", (90, -75, -75), (150 * KL, 100 * KC, 100 * KH), "#00ACC1"),
+    ColorProfile("Blue", (30, 0, -80), (50 * KL, 150 * KC, 150 * KH), "#1E88E5"),
+    ColorProfile("Purple", (50, 100, -70), (50 * KL, 150 * KC, 150 * KH), "#8E24AA"),
+    ColorProfile("Pink", (80, 110, -50), (20 * KL, 20 * KC, 20 * KH), "#E91E63"),
+    ColorProfile("White", (100, 0, 0), (10 * KL, 10 * KC, 10 * KH), "#FAFAFA"),
+    ColorProfile("Black", (0, 0, 0), (40 * KL, 10 * KC, 10 * KH), "#212121"),
+    ColorProfile("Gray", (50, 0, 0), (20 * KL, 10 * KC, 10 * KH), "#757575"),
+    ColorProfile("Brown", (30, 10, 80), (50 * KL, 150 * KC, 150 * KH), "#6D4C41"),
 ]
 
 
@@ -164,9 +167,9 @@ class LabColorDetector:
         # OpenCV LAB: L in [0,255], a/b shifted by 128.
 
         # Subsample for speed on large images (max 8 000 pixels)
-        if len(pixels) > 8_000:
-            idx = np.random.choice(len(pixels), 8_000, replace=False)
-            pixels = pixels[idx]
+        # if len(pixels) > 8_000:
+        #     idx = np.random.choice(len(pixels), 8_000, replace=False)
+        #     pixels = pixels[idx]
 
         criteria = (
             cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER,
@@ -206,10 +209,40 @@ class LabColorDetector:
         tolerance-weighted Euclidean distance (perceptual ΔE approximation).
         """
         # Normalised per-channel distance: (obs - center) / tolerance
-        delta = (lab - self._centers) / (self._tolerances + 1e-6)
-        # for i in range(len(self._centers)):
-        #     print(self._calculate_delta_e_cie76(lab , self._centers[i]))
-        distances = np.linalg.norm(delta, axis=1)  # shape (N,)
+        c1 = np.hypot(lab[1], lab[2])
+        c2 = np.hypot(self._centers[:, 1], self._centers[:, 2])  # (N,) — sample chroma
+        kl, kc, kh = 1.0, 1.0, 1.0
+        sl = 1.0
+        sc = 1.0 + 0.045 * c1
+        sh = 1.0 + 0.015 * c1
+
+        dL = lab[0] - self._centers[:, 0]
+        dC = c1 - c2
+        dH2 = np.maximum(
+            (lab[1] - self._centers[:, 1]) ** 2
+            + (lab[2] - self._centers[:, 2]) ** 2
+            - dC**2,
+            np.float32(0),
+        )
+        dH = np.sqrt(dH2)
+
+        # delta = np.transpose((
+        #     delta[:, 0] / (kl * sl) / 100,
+        #     delta[:, 1] / (kc * sc) / 100,
+        #     delta[:, 2] / (kh * sh) / 100,
+        # ))
+        # print(lab - self._centers)
+        # print(delta)
+        # print(c2)
+        # print(self._centers)
+        Lterm = dL / (kl * sl) / 100
+        Cterm = dC / (kc * sc) / 100
+        Hterm = dH / (kh * sh) / 100
+        # delta = (lab - self._centers) / (self._tolerances + 1e-6)
+        distances = np.sqrt(Lterm**2 + Cterm**2 + Hterm**2)
+
+        # distances = np.linalg.norm(delta, axis=1)  # shape (N,)
+        # sorted_idx = np.argsort(distances)
         sorted_idx = np.argsort(distances)
         best_idx = sorted_idx[0]
         best_dist = distances[best_idx]
