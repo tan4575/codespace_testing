@@ -26,25 +26,25 @@ import sys
 @dataclass(frozen=True)
 class ColorProfile:
     name: str
-    lab_center: tuple[float, float, float]   # (L*, a*, b*)
-    tolerance: tuple[float, float, float]    # per-channel tolerance
-    hex_display: str                          # representative hex for UI
+    lab_center: tuple[float, float, float]  # (L*, a*, b*)
+    tolerance: tuple[float, float, float]  # per-channel tolerance
+    hex_display: str  # representative hex for UI
 
 
 # Empirically tuned LAB ranges for common object colors
 COLOR_PROFILES: list[ColorProfile] = [
-    ColorProfile("Red",      (50, 100, 100),  (25, 200, 200), "#E53935"),
-    ColorProfile("Orange",   (60,  30,  50),  (20, 50, 50),   "#FB8C00"),
-    ColorProfile("Yellow",   (90,   0,  75),  (20, 20, 35),   "#FDD835"),
-    ColorProfile("Green",    (90, -100, 80),  (150, 150, 150),   "#43A047"),
-    ColorProfile("Cyan",     (90, -75, -75),  (150, 100, 100),   "#00ACC1"),
-    ColorProfile("Blue",     (30,   0, -80),  (50, 150, 150),   "#1E88E5"),
-    ColorProfile("Purple",   (50, 100, -70),  (50, 150, 150),   "#8E24AA"),
-    ColorProfile("Pink",     (80, 110, -50),  (20, 20, 20),   "#E91E63"),
-    ColorProfile("White",    (100,  0,   0),  (10, 10, 10),   "#FAFAFA"),
-    ColorProfile("Black",    (0,    0,   0),  (40, 10, 10),   "#212121"),
-    ColorProfile("Gray",     (50,   0,   0),  (20, 10, 10),   "#757575"),
-    ColorProfile("Brown",    (30,   10,  80),  (50, 150, 150),   "#6D4C41"),
+    ColorProfile("Red", (50, 100, 100), (25, 200, 200), "#E53935"),
+    ColorProfile("Orange", (60, 30, 50), (20, 50, 50), "#FB8C00"),
+    ColorProfile("Yellow", (90, 0, 75), (20, 20, 35), "#FDD835"),
+    ColorProfile("Green", (90, -100, 80), (150, 150, 150), "#43A047"),
+    ColorProfile("Cyan", (90, -75, -75), (150, 100, 100), "#00ACC1"),
+    ColorProfile("Blue", (30, 0, -80), (50, 150, 150), "#1E88E5"),
+    ColorProfile("Purple", (50, 100, -70), (50, 150, 150), "#8E24AA"),
+    ColorProfile("Pink", (80, 110, -50), (20, 20, 20), "#E91E63"),
+    ColorProfile("White", (100, 0, 0), (10, 10, 10), "#FAFAFA"),
+    ColorProfile("Black", (0, 0, 0), (40, 10, 10), "#212121"),
+    ColorProfile("Gray", (50, 0, 0), (20, 10, 10), "#757575"),
+    ColorProfile("Brown", (30, 10, 80), (50, 150, 150), "#6D4C41"),
 ]
 
 
@@ -77,8 +77,12 @@ class LabColorDetector:
         self.min_confidence = min_confidence
 
         # Pre-build color database as numpy arrays for vectorized matching
-        self._centers = np.array([p.lab_center for p in COLOR_PROFILES], dtype=np.float32)
-        self._tolerances = np.array([p.tolerance for p in COLOR_PROFILES], dtype=np.float32)
+        self._centers = np.array(
+            [p.lab_center for p in COLOR_PROFILES], dtype=np.float32
+        )
+        self._tolerances = np.array(
+            [p.tolerance for p in COLOR_PROFILES], dtype=np.float32
+        )
 
     # ------------------------------------------------------------------
     # Public API
@@ -128,7 +132,7 @@ class LabColorDetector:
     def _preprocess(self, img: np.ndarray, roi: Optional[tuple]) -> np.ndarray:
         if roi:
             x, y, w, h = roi
-            img = img[y:y + h, x:x + w]
+            img = img[y : y + h, x : x + w]
 
         # Gaussian blur to reduce sensor noise & texture artifacts
         if self.blur_kernel > 1:
@@ -166,12 +170,11 @@ class LabColorDetector:
 
         criteria = (
             cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER,
-            20,     # max iterations
-            0.3,    # epsilon
+            20,  # max iterations
+            0.3,  # epsilon
         )
         _, labels, centers = cv2.kmeans(
-            pixels, self.k, None, criteria,
-            attempts=5, flags=cv2.KMEANS_PP_CENTERS
+            pixels, self.k, None, criteria, attempts=5, flags=cv2.KMEANS_PP_CENTERS
         )
 
         # Largest cluster wins; pixels are already pre-filtered to be chromatic
@@ -191,11 +194,11 @@ class LabColorDetector:
     # ------------------------------------------------------------------
     def _calculate_delta_e_cie76(self, lab1, lab2):
         """
-        Calculates Delta E (CIE76) as the Euclidean distance between 
+        Calculates Delta E (CIE76) as the Euclidean distance between
         two points in the 3D Lab space.
         """
         # Formula: sqrt((L2-L1)^2 + (a2-a1)^2 + (b2-b1)^2)
-        return np.sqrt(np.sum((lab1 - lab2)**2))
+        return np.sqrt(np.sum((lab1 - lab2) ** 2))
 
     def _match_color(self, lab: np.ndarray) -> dict:
         """
@@ -226,9 +229,11 @@ class LabColorDetector:
         return {
             "color": profile.name if confidence >= self.min_confidence else "Unknown",
             "confidence": round(confidence, 3),
-            "lab_value": {"L": round(float(lab[0]), 1),
-                          "a": round(float(lab[1]), 1),
-                          "b": round(float(lab[2]), 1)},
+            "lab_value": {
+                "L": round(float(lab[0]), 1),
+                "a": round(float(lab[1]), 1),
+                "b": round(float(lab[2]), 1),
+            },
             "hex_color": profile.hex_display,
             "all_matches": all_matches,
         }
@@ -271,7 +276,9 @@ class LabColorDetector:
         for i, line in enumerate(lines):
             y_pos = 30 + i * 28
             cv2.putText(img, line, (10, y_pos), font, 0.65, (0, 0, 0), 3, cv2.LINE_AA)
-            cv2.putText(img, line, (10, y_pos), font, 0.65, (255, 255, 255), 1, cv2.LINE_AA)
+            cv2.putText(
+                img, line, (10, y_pos), font, 0.65, (255, 255, 255), 1, cv2.LINE_AA
+            )
 
         return img
 
@@ -279,6 +286,7 @@ class LabColorDetector:
 # ─────────────────────────────────────────────
 # Live Webcam Demo
 # ─────────────────────────────────────────────
+
 
 def run_webcam_demo(detector: LabColorDetector, camera_index: int = 0) -> None:
     """
@@ -317,6 +325,7 @@ def run_webcam_demo(detector: LabColorDetector, camera_index: int = 0) -> None:
 # CLI entry-point
 # ─────────────────────────────────────────────
 
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Detect object color using LAB color space (OpenCV)"
@@ -326,10 +335,16 @@ def main() -> None:
     # image mode
     img_parser = subparsers.add_parser("image", help="Analyze a single image file")
     img_parser.add_argument("path", type=str, help="Path to image file")
-    img_parser.add_argument("--roi", nargs=4, type=int, metavar=("X", "Y", "W", "H"),
-                            help="Region of interest (optional)")
-    img_parser.add_argument("--show", action="store_true",
-                            help="Display annotated image window")
+    img_parser.add_argument(
+        "--roi",
+        nargs=4,
+        type=int,
+        metavar=("X", "Y", "W", "H"),
+        help="Region of interest (optional)",
+    )
+    img_parser.add_argument(
+        "--show", action="store_true", help="Display annotated image window"
+    )
 
     # webcam mode
     cam_parser = subparsers.add_parser("webcam", help="Real-time webcam detection")
@@ -337,8 +352,9 @@ def main() -> None:
 
     # shared params
     for p in (img_parser, cam_parser):
-        p.add_argument("--clusters", type=int, default=4,
-                       help="K-Means clusters (default 4)")
+        p.add_argument(
+            "--clusters", type=int, default=4, help="K-Means clusters (default 4)"
+        )
 
     args = parser.parse_args()
     detector = LabColorDetector(k_clusters=args.clusters)
@@ -346,13 +362,16 @@ def main() -> None:
     if args.mode == "image":
         roi = tuple(args.roi) if args.roi else None
         result, vis = detector.detect_with_visualization(
-            cv2.imread(args.path), roi  # type: ignore[arg-type]
+            cv2.imread(args.path),
+            roi,  # type: ignore[arg-type]
         )
         print("\n── Color Detection Result ─────────────────")
         print(f"  Detected Color : {result['color']}")
         print(f"  Confidence     : {result['confidence']:.1%}")
-        print(f"  LAB Value      : L={result['lab_value']['L']}  "
-              f"a={result['lab_value']['a']}  b={result['lab_value']['b']}")
+        print(
+            f"  LAB Value      : L={result['lab_value']['L']}  "
+            f"a={result['lab_value']['a']}  b={result['lab_value']['b']}"
+        )
         print(f"  Hex (approx)   : {result['hex_color']}")
         print(f"  Top matches    : {result['all_matches']}")
         print("────────────────────────────────────────────\n")
